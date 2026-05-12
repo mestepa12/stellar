@@ -1,0 +1,73 @@
+<div class="app">
+  @switch (state()) {
+    @case ('search') {
+      <app-search (search)="onSearch($event)" />
+    }
+
+    @case ('loading') {
+      <div class="loading">
+        <div class="loading__orbit">
+          <div class="loading__planet"></div>
+          <div class="loading__ring"></div>
+        </div>
+        <p class="loading__label">Cartografiando <strong>{{ repoLabel() }}</strong>…</p>
+      </div>
+    }
+
+    @case ('universe') {
+      <div class="universe-shell">
+        <app-universe
+          class="universe-canvas"
+          [commits]="commits()"
+          (commitClicked)="selectedCommit.set($event)"
+        />
+
+        <header class="hud-top">
+          <button class="hud-back" (click)="resetToSearch()" aria-label="Volver">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M11 7H3M6 3L2 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="hud-repo">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <rect x="2" y="2" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M5 5h4M5 7h4M5 9h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            {{ repoLabel() }}
+          </div>
+          <div class="hud-stats">
+            <span class="hud-badge">{{ commits().length }} commits</span>
+            @if (oldestDate() && newestDate()) {
+              <span class="hud-badge hud-badge--muted">
+                {{ oldestDate() | date:'MMM y' }} — {{ newestDate() | date:'MMM y' }}
+              </span>
+            }
+          </div>
+        </header>
+
+        <div class="legend">
+          <div class="legend__item">
+            <span class="legend__dot" style="background:#6366f1"></span>
+            <span>Primer commit</span>
+          </div>
+          <div class="legend__item">
+            <span class="legend__dot" style="background:#fbbf24"></span>
+            <span>Mitad</span>
+          </div>
+          <div class="legend__item">
+            <span class="legend__dot" style="background:#ffffff"></span>
+            <span>Más reciente</span>
+          </div>
+        </div>
+      </div>
+    }
+
+    @case ('error') {
+      <div class="error-screen">
+        <p class="error-screen__icon">✦</p>
+        <p class="error-screen__msg">{{ errorMsg() }}</p>
+        <button class="error-screen__btn" (click)="resetToSearch()">Volver</button>
+      </div>
+    }
+  }
+</div>
