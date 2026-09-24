@@ -9,6 +9,8 @@ export class GithubService {
   private api = 'https://api.github.com';
   private headers = new HttpHeaders({ Accept: 'application/vnd.github.v3+json' });
 
+  // Acepta "owner/repo" o la URL tal cual se copia del navegador (con / final
+  // o .git), que es lo que la gente pega.
   parseRepo(input: string): { owner: string; name: string } | null {
     const clean = input.trim().replace(/\/$/, '').replace(/\.git$/, '');
     const fromUrl = clean.match(/github\.com\/([^/\s]+)\/([^/\s]+)/);
@@ -18,6 +20,9 @@ export class GithubService {
     return null;
   }
 
+  // Como mucho 200 commits (2 páginas en paralelo): sin token, la API de GitHub
+  // permite 60 peticiones/hora por IP. Si la página 2 falla se pinta con la 1
+  // en vez de perderlo todo; un error en la 1 sí se propaga (404, 403).
   getCommits(owner: string, name: string): Observable<GitCommit[]> {
     const opts = { headers: this.headers };
     const url = (page: number) =>

@@ -7,6 +7,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GitCommit } from '../../models/commit.model';
 
+// Todas las estrellas van en un único THREE.Points (un draw call). El hover se
+// resuelve en el shader comparando aIndex con uHovered, en vez de crear un mesh
+// por commit. El tamaño se divide por la profundidad para simular perspectiva.
 const VERT = `
   attribute float aSize;
   attribute float aIndex;
@@ -25,6 +28,8 @@ const VERT = `
   }
 `;
 
+// Cada punto se dibuja como un disco con núcleo brillante y halo difuso;
+// descartar fuera del radio evita los cuadrados que pinta WebGL por defecto.
 const FRAG = `
   varying vec3 vColor;
   varying float vGlow;
@@ -120,6 +125,9 @@ export class UniverseComponent implements AfterViewInit, OnDestroy {
 
   constructor(private zone: NgZone) {}
 
+  // El bucle de render y mousemove se disparan decenas de veces por segundo:
+  // fuera de la zona de Angular no provocan detección de cambios. Solo se
+  // vuelve a la zona (zone.run) al actualizar signals que pinta la plantilla.
   ngAfterViewInit(): void {
     this.zone.runOutsideAngular(() => {
       this.initScene();
@@ -130,6 +138,8 @@ export class UniverseComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  // Three.js no libera memoria de GPU solo: sin dispose(), volver a buscar
+  // otro repo acumularía contextos WebGL hasta que el navegador los tire.
   ngOnDestroy(): void {
     cancelAnimationFrame(this.animId);
     this.ro?.disconnect();
@@ -194,6 +204,8 @@ export class UniverseComponent implements AfterViewInit, OnDestroy {
     this.scene.add(this.bgPoints);
   }
 
+  // Ordenar por fecha antes de posicionar: el índice en el array es el mismo
+  // que usa el shader (aIndex) y el raycaster, así hover y tooltip coinciden.
   private rebuildStars(): void {
     if (this.starPoints) {
       this.scene.remove(this.starPoints);
@@ -245,6 +257,9 @@ export class UniverseComponent implements AfterViewInit, OnDestroy {
     this.scene.add(this.starPoints);
   }
 
+  // Espiral cronológica: el primer commit en el centro, el último en el borde.
+  // El desorden sale de un hash del SHA, así cada commit ocupa siempre el mismo
+  // sitio; se reduce hacia fuera para que los brazos recientes se lean nítidos.
   private starPos(t: number, sha: string): [number, number, number] {
     const r = 8 + t * 75;
     const turns = 5;
@@ -260,6 +275,7 @@ export class UniverseComponent implements AfterViewInit, OnDestroy {
     ];
   }
 
+  // Índigo (antiguo) → ámbar → blanco (reciente): la edad se lee sin tooltip.
   private ageColor(t: number): THREE.Color {
     if (t < 0.5) {
       return new THREE.Color().lerpColors(
@@ -275,6 +291,8 @@ export class UniverseComponent implements AfterViewInit, OnDestroy {
     );
   }
 
+  // Pseudoaleatorio determinista por semilla: con Math.random() el universo
+  // cambiaría de forma en cada carga del mismo repositorio.
   private rng(seed: string): number {
     let h = 0;
     for (let i = 0; i < seed.length; i++) {
@@ -300,6 +318,8 @@ export class UniverseComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  // Umbral en unidades del mundo: sin margen, acertar a un punto de 2px con el
+  // ratón sería casi imposible.
   private checkHover(): void {
     if (!this.starPoints) return;
     this.raycaster.params.Points = { threshold: 2.5 };
@@ -324,6 +344,8 @@ export class UniverseComponent implements AfterViewInit, OnDestroy {
     tick();
   }
 
+  // ResizeObserver sobre el contenedor, no window.resize: también detecta
+  // cambios de layout que no vienen de redimensionar la ventana.
   private setupResize(): void {
     this.ro = new ResizeObserver(() => {
       const canvas = this.canvasRef.nativeElement;
